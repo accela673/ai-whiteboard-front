@@ -1,35 +1,115 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useRef, useState } from "react";
+import { Stage, Layer, Line } from "react-konva";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [lines, setLines] = useState<any[]>([]);
+  const [color, setColor] = useState("black");
+  const [strokeWidth, setStrokeWidth] = useState(2);
+  const [tool, setTool] = useState<"pen" | "eraser">("pen");
+  const isDrawing = useRef(false);
+
+  const handleMouseDown = (e: any) => {
+    isDrawing.current = true;
+    const pos = e.target.getStage().getPointerPosition();
+    setLines([
+      ...lines,
+      { 
+        points: [pos.x, pos.y], 
+        color, 
+        strokeWidth, 
+        tool 
+      },
+    ]);
+  };
+
+  const handleMouseMove = (e: any) => {
+    if (!isDrawing.current) return;
+    const stage = e.target.getStage();
+    const point = stage.getPointerPosition();
+
+    const lastLine = lines[lines.length - 1];
+    lastLine.points = lastLine.points.concat([point.x, point.y]);
+
+    const updatedLines = [...lines.slice(0, lines.length - 1), lastLine];
+    setLines(updatedLines);
+  };
+
+  const handleMouseUp = () => {
+    isDrawing.current = false;
+  };
+
+  const clearBoard = () => {
+    setLines([]);
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <div className="flex flex-col h-screen">
+      <header className="p-2 bg-gray-200 flex justify-between items-center">
+        <h1 className="font-bold text-lg">AI Whiteboard (Local)</h1>
+        <div className="flex gap-2 items-center">
+          <button
+            onClick={() => setTool("pen")}
+            className={`px-3 py-1 rounded ${tool === "pen" ? "bg-blue-500 text-white" : "bg-gray-300"}`}
+          >
+            Pen
+          </button>
+          <button
+            onClick={() => setTool("eraser")}
+            className={`px-3 py-1 rounded ${tool === "eraser" ? "bg-red-500 text-white" : "bg-gray-300"}`}
+          >
+            Eraser
+          </button>
+          {tool === "pen" && (
+            <>
+              <label>Color: </label>
+              <input
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+              />
+            </>
+          )}
+          <label>Width: </label>
+          <input
+            type="range"
+            min="1"
+            max="20"
+            value={strokeWidth}
+            onChange={(e) => setStrokeWidth(Number(e.target.value))}
+          />
+          <button
+            onClick={clearBoard}
+            className="bg-red-600 text-white px-3 py-1 rounded"
+          >
+            Clear
+          </button>
+        </div>
+      </header>
 
-export default App
+      <Stage
+        width={window.innerWidth}
+        height={window.innerHeight - 50}
+        onMouseDown={handleMouseDown}
+        onMousemove={handleMouseMove}
+        onMouseup={handleMouseUp}
+      >
+        <Layer>
+          {lines.map((line, i) => (
+            <Line
+              key={i}
+              points={line.points}
+              stroke={line.color}
+              strokeWidth={line.strokeWidth}
+              tension={0.5}
+              lineCap="round"
+              lineJoin="round"
+              globalCompositeOperation={
+                line.tool === "eraser" ? "destination-out" : "source-over"
+              }
+            />
+          ))}
+        </Layer>
+      </Stage>
+    </div>
+  );
+}
